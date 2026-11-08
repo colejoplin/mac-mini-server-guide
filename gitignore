@@ -1,0 +1,6 @@
+.env
+*/postgres/
+*/n8n/
+*/pgadmin/
+*/backups/
+.DS_Store
