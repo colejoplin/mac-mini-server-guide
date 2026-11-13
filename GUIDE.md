@@ -95,7 +95,9 @@ Inside pgAdmin, connect to host `postgres`, port `5432`, with your Postgres user
 ## 4. Putting it online
 
 Use a **Cloudflare Tunnel**: cloudflared connects outbound, so nothing opens on your router. Follow
-Cloudflare's own tunnel docs for setup, run cloudflared however you like, and follow these rules:
+Cloudflare's own tunnel docs for setup, run cloudflared however you like, and follow these rules.
+(One option is a small stack of its own that serves every project; one tunnel per project works
+too. Pick whichever you'll find easier to maintain.)
 
 1. **Join cloudflared to each stack's network** (`myproject-network`) so it can reach containers by
    name.
