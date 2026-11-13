@@ -88,6 +88,9 @@ docker compose ps        # postgres "healthy", everything else "running"
 
 Inside pgAdmin, connect to host `postgres`, port `5432`, with your Postgres user.
 
+**Keep `website/` to published files only.** nginx serves everything in it, including dotfiles,
+so a `.env` or `.git` folder there is readable by anyone who guesses the path.
+
 **Another project?** Copy the template again with a new name and new ports. One stack per project.
 
 ---
