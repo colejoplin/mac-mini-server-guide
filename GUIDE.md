@@ -143,6 +143,10 @@ natively and call it from containers:
 http://host.docker.internal:11434
 ```
 
+Install the **Ollama Mac app**. It updates itself; quit and reopen it to apply an update. Set it
+to open at login. Like Docker, it only comes back after a restart once the Mac logs in (see
+section 1).
+
 Unified memory is shared by macOS, Docker and your model. Check what the stack already uses before
 choosing one:
 
@@ -151,7 +155,13 @@ docker stats --no-stream     # memory per container
 ollama ps                    # memory per loaded model
 ```
 
-Prefer small models that do one job well.
+Prefer small models that do one job well. On a 24 GB M4 Mac mini, Ollama 0.40+ runs
+`gemma4:12b-mlx` on Apple's MLX backend:
+
+```bash
+ollama run gemma4:12b-mlx "Say hello"
+ollama ps                    # RUNNER should show mlx
+```
 
 ---
 
@@ -201,3 +211,4 @@ Every one of these seemed obvious afterward.
 | Backups are huge | n8n execution history. The template prunes after 7 days. |
 | Imported workflow runs old logic | Imported isn't published. Publish it, then test live. |
 | Nothing came back after a power cut | FileVault blocked login. See section 1. |
+| n8n's call to Ollama timed out | Gemma 4 thinks by default and can run past n8n's 60-second timeout. Send `"think": false` unless the task needs reasoning. |
