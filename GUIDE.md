@@ -3,13 +3,22 @@
 > **Last verified:** November 2026, macOS 27 on Apple silicon.
 > Replace `myproject` and `example.com` with your own names.
 
+**You will hit something.** I built mine with an AI assistant (Claude) helping at every step:
+research, architecture, installs, Terminal commands and debugging. Local problems are where most
+people give up. Don't. Paste the exact command and the full error into an AI assistant, say which
+Mac and macOS version you're on, and ask what it means before you run any fix.
+
+- **Never paste secrets:** `.env` values, passwords, tunnel tokens or encryption keys.
+- **Read-only checks first.** Understand a command before you run it, especially anything with
+  `sudo` or `rm`.
+
 1. [Make the Mac behave like a server](#1-make-the-mac-behave-like-a-server)
 2. [Docker Desktop](#2-docker-desktop)
 3. [Your first stack](#3-your-first-stack)
 4. [Putting it online](#4-putting-it-online)
 5. [Backups](#5-backups)
 6. [Local models](#6-local-models)
-7. [Your own Swift tools](#7-your-own-swift-tools)
+7. [Your own local tools](#7-your-own-local-tools)
 8. [Updating](#8-updating)
 9. [Gotchas](#9-gotchas)
 
@@ -38,6 +47,7 @@ nothing starts until someone logs in, and FileVault blocks automatic login.
 **SSH unlock (macOS 26+, Apple silicon):** turn on **Remote Login** (System Settings → General →
 Sharing), use wired Ethernet, and after a restart run `ssh you@your-mac.local` from another machine
 on the same network. Enter your password; the session drops while macOS finishes booting.
+Away from that network you can't reach it: the tunnel runs in Docker, which waits for the unlock.
 
 ### UPS
 
@@ -51,13 +61,32 @@ pmset -g ups      # empty output means macOS can't see it
 
 ## 2. Docker Desktop
 
+### Before you start
+
+- Command Line Tools: `xcode-select --install` (gives you `git`)
+- Docker Desktop for Apple silicon
+- The Ollama app (section 6)
+- A domain on Cloudflare (section 4, only if you're putting it online)
+
+Then get this repo:
+
+```bash
+git clone https://github.com/colejoplin/mac-mini-server-guide.git
+cd mac-mini-server-guide
+```
+
+### Install Docker Desktop
+
 1. Install Docker Desktop for Apple silicon.
 2. Settings → General → **Start Docker Desktop when you sign in**.
 3. Check: `docker compose version`
 
-> **Why not Apple's native containers?** They're promising, but they don't yet restart a crashed
-> service, and Compose support comes only from community add-ons. Docker also matches what other
-> servers run, so your stacks stay portable.
+> **Why not Apple's native containers?** They're promising, but when this was verified they didn't
+> restart a crashed service, and Compose support came only from community add-ons. Docker also
+> matches what other servers run, so your stacks stay portable.
+
+Containers reach services on your Mac at `host.docker.internal`. That's a Docker Desktop feature,
+so no `extra_hosts` setting is needed.
 
 ---
 
@@ -72,8 +101,12 @@ open -e .env
 ```
 
 In `.env`, change every `CHANGE_ME` (use `openssl rand -base64 32`), set
-`COMPOSE_PROJECT_NAME`, and pick local ports no other stack uses. **Copy `N8N_ENCRYPTION_KEY` to
-your password manager now.**
+`COMPOSE_PROJECT_NAME`, and check the local ports. **Copy `N8N_ENCRYPTION_KEY` to your password
+manager now.**
+
+The `.env.example` ports are the vendor defaults: n8n **5678**, pgAdmin **5050**, website **8080**.
+Use them for your first stack. Each stack after that needs its own: take the next free number
+(5679, 5051, 8081…). Check what's in use with `lsof -nP -iTCP -sTCP:LISTEN`.
 
 ```bash
 docker compose up -d
@@ -88,14 +121,20 @@ docker compose ps        # postgres "healthy", everything else "running"
 
 Inside pgAdmin, connect to host `postgres`, port `5432`, with your Postgres user.
 
-**Another project?** Copy the template again with a new name and new ports. One stack per project.
+**Keep `website/` to published files only.** nginx serves everything in it, including dotfiles,
+so a `.env` or `.git` folder there is readable by anyone who guesses the path.
+
+**Another project?** Copy the template again with a new name and the next free ports. One stack
+per project.
 
 ---
 
 ## 4. Putting it online
 
 Use a **Cloudflare Tunnel**: cloudflared connects outbound, so nothing opens on your router. Follow
-Cloudflare's own tunnel docs for setup, run cloudflared however you like, and follow these rules:
+Cloudflare's own tunnel docs for setup, run cloudflared however you like, and follow these rules.
+(One option is a small stack of its own that serves every project; one tunnel per project works
+too. Pick whichever you'll find easier to maintain.)
 
 1. **Join cloudflared to each stack's network** (`myproject-network`) so it can reach containers by
    name.
@@ -136,12 +175,18 @@ least one copy off the Mac.
 
 ## 6. Local models
 
-Local models run on the Mac's **GPU**. Docker on a Mac **can't reach the GPU**, so run Ollama
-natively and call it from containers:
+Local models run on the Mac's **GPU**. Ollama runs **MLX** models on Apple's MLX framework, its
+fastest engine on Apple silicon, and **GGUF** models (the portable format most models ship in)
+through Metal. Docker on a Mac **can't reach the GPU**, so run Ollama natively and call it from
+containers:
 
 ```
 http://host.docker.internal:11434
 ```
+
+Install the **Ollama Mac app**. It updates itself; quit and reopen it to apply an update. Set it
+to open at login. Like Docker, it only comes back after a restart once the Mac logs in (see
+section 1).
 
 Unified memory is shared by macOS, Docker and your model. Check what the stack already uses before
 choosing one:
@@ -151,28 +196,39 @@ docker stats --no-stream     # memory per container
 ollama ps                    # memory per loaded model
 ```
 
-Prefer small models that do one job well.
+Prefer small models that do one job well. On a 24 GB M4 Mac mini, Ollama 0.40+ runs
+`gemma4:12b-mlx` on Apple's MLX backend:
+
+```bash
+ollama run gemma4:12b-mlx "Say hello"
+ollama ps                    # RUNNER should show mlx
+```
+
+Prefer an MLX build when one exists. No MLX build? Use the GGUF build. It still runs on the GPU,
+just slower.
 
 ---
 
-## 7. Your own Swift tools
+## 7. Your own local tools
 
-Docker containers are Linux and can't run Mac apps. But your Swift tools can run **beside**
-Docker, and containers call them the same way they call Ollama:
+Docker containers are Linux and can't reach the Mac's GPU, Apple frameworks or hardware. When a tool
+needs those, run it **beside** Docker, in any language (Swift, Python, Rust, C++). Containers call
+it the same way they call Ollama:
 
 ```
-n8n (Docker) → http://host.docker.internal:<port> → your Swift tool on 127.0.0.1:<port>
+n8n (Docker) → http://host.docker.internal:<port> → your tool on 127.0.0.1:<port>
 ```
 
 The pattern:
 
-- A command-line tool that listens on **`127.0.0.1` only** (the Network framework is enough)
+- Listens on **`127.0.0.1` only**
 - Requires a token header on every request
 - Kept running by a **LaunchAgent** with `KeepAlive`
 - Takes JSON in, writes files or returns JSON
 
-That makes every Apple framework you already use (AVFoundation, Vision, Core Image, Core ML, Core
-Graphics) a backend for a website or an automation.
+That makes anything native to the Mac, including Apple frameworks like AVFoundation, Vision and
+Core ML, a backend for a website or an automation. If a tool doesn't need the Mac, put it in a
+container so it stays portable.
 
 ---
 
@@ -201,3 +257,4 @@ Every one of these seemed obvious afterward.
 | Backups are huge | n8n execution history. The template prunes after 7 days. |
 | Imported workflow runs old logic | Imported isn't published. Publish it, then test live. |
 | Nothing came back after a power cut | FileVault blocked login. See section 1. |
+| n8n's call to Ollama timed out | Gemma 4 thinks by default and can run past n8n's 60-second timeout. Send `"think": false` unless the task needs reasoning. |

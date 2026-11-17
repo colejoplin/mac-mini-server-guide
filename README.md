@@ -4,7 +4,7 @@ Run websites, n8n automation and local AI on a Mac. Companion to the Cocoaheads 
 **"Creating an AI-enabled Mac Mini Server."**
 
 This is a software setup guide: macOS settings, Docker, one project stack, putting it online
-safely, local models, and connecting your own Swift tools to the rest of the stack.
+safely, local models, and connecting your own tools to the rest of the stack.
 
 > **Last verified:** November 2026, macOS 27 on Apple silicon. Image versions are pinned in the
 > template. Check for newer versions before you start.
@@ -28,7 +28,7 @@ Cloudflare (HTTPS, Access login)          ← nothing open on your router
 │                    │  http://host.docker.internal:<port> │
 │                    ▼                                     │
 │  Native macOS  (the capability layer)                    │
-│    Ollama · your own Swift tools                         │
+│    Ollama · your own tools                               │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -44,6 +44,8 @@ Cloudflare (HTTPS, Access login)          ← nothing open on your router
 2. **Hosting client work.** An always-on Mac running one stack per client, behind a tunnel.
 3. **In-house and private.** The same setup with no tunnel. Everything stays on the office network.
 
+Stuck? See the top of [`GUIDE.md`](GUIDE.md): an AI assistant is the fastest way through local problems.
+
 ---
 
 ## What's here
@@ -56,6 +58,9 @@ Cloudflare (HTTPS, Access login)          ← nothing open on your router
 ## Quick start
 
 ```bash
+git clone https://github.com/colejoplin/mac-mini-server-guide.git
+cd mac-mini-server-guide
+mkdir -p ~/projects
 cp -R stack-template ~/projects/myproject
 cd ~/projects/myproject
 cp .env.example .env
@@ -64,7 +69,7 @@ docker compose up -d
 docker compose ps         # postgres should show "healthy"
 ```
 
-Then open n8n at `http://127.0.0.1:5680` (or your `N8N_LOCAL_PORT`).
+Then open n8n at `http://127.0.0.1:5678` (or your `N8N_LOCAL_PORT`).
 
 Read [`GUIDE.md`](GUIDE.md) before you put anything on the internet.
 
@@ -81,8 +86,3 @@ Read [`GUIDE.md`](GUIDE.md) before you put anything on the internet.
 - **Back up the database and the n8n encryption key.** Your automations live in Postgres, not
   your repo.
 
----
-
-## License
-
-MIT
